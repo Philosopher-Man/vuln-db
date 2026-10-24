@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0d1117">
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Biblioteca interna de hallazgos AppSec con calculadora CVSS 4.0 integrada para la redacción ágil de informes.">
+<title>AppSec Vuln Library · CVSS 4.0</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%233fb950'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M12%2022s8-4%208-10V5l-8-3-8%203v7c0%206%208%2010%208%2010z'/%3E%3C/svg%3E">
+<!-- Solo estructura + imports: la lógica vive en assets/js/*.js (módulos ES) -->
+<link rel="stylesheet" href="./assets/css/base.css">
+<link rel="stylesheet" href="./assets/css/layout.css">
+<link rel="stylesheet" href="./assets/css/components.css">
+<link rel="stylesheet" href="./assets/css/utilities.css">
+</head>
+<body>
+<a class="skip-link" href="#vulnGrid">Saltar al catálogo</a>
+
+<noscript>
+  <p class="noscript-msg">Esta herramienta requiere JavaScript. Habilítalo para usar el catálogo y la calculadora CVSS 4.0.</p>
+</noscript>
+
+<!-- ══ Cabecera ══ -->
+<header class="app-header">
+  <div class="container">
+    <div class="brand">
+      <svg class="logo" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+      <div>
+        <h1>AppSec <span class="accent">Vuln Library</span></h1>
+        <p class="subtitle">Catálogo de hallazgos + calculadora CVSS 4.0 · redacción de informes</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span id="libStatus" class="lib-status loading" role="status" title="Estado de la librería de cálculo CVSS 4.0 (ae-cvss-calculator vía CDN)"><span class="dot"></span><span class="txt">Cargando librería CVSS…</span></span>
+      <button id="btnFreeCalc" class="btn btn-primary" type="button" title="Abrir la calculadora en modo libre (Esc para cerrar)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6.5h8"/><path d="M8 11h.01M12 11h.01M16 11h.01"/><path d="M8 15h.01M12 15h.01M16 15v.01"/><path d="M8 18.5h8"/></svg>
+        Calculadora CVSS 4.0
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ══ Buscador sticky + filtros (la sombra al hacer scroll la activa ui.js) ══ -->
+<div id="stickSentinel" aria-hidden="true"></div>
+<div class="searchbar" id="searchbar">
+  <div class="container">
+    <div class="search-row">
+      <svg class="search-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="q" type="search" placeholder="Buscar por título, descripción, categoría OWASP/CWE, tags o #hallazgo…" autocomplete="off" spellcheck="false" aria-label="Buscar en el catálogo de vulnerabilidades">
+      <kbd class="kbd-hint" aria-hidden="true">/</kbd>
+      <button id="btnClear" class="clear-btn" type="button" hidden aria-label="Limpiar búsqueda" title="Limpiar búsqueda">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="filters-row">
+      <div class="chip-group" role="group" aria-label="Filtrar por tipo">
+        <button class="chip" type="button" data-group="all" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Todos</button>
+        <button class="chip" type="button" data-group="web" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Web</button>
+        <button class="chip" type="button" data-group="api" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z"/></svg>API</button>
+        <button class="chip" type="button" data-group="movil" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>Móvil</button>
+        <button class="chip" type="button" data-group="llm" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3z"/></svg>LLM</button>
+      </div>
+      <div class="chip-group" role="group" aria-label="Filtrar por severidad por defecto">
+        <button class="chip" type="button" data-sev="all" aria-pressed="true">Toda severidad</button>
+        <button class="chip" type="button" data-sev="bajo" aria-pressed="false"><span class="cdot cd-bajo" aria-hidden="true"></span>Bajo</button>
+        <button class="chip" type="button" data-sev="moderado" aria-pressed="false"><span class="cdot cd-moderado" aria-hidden="true"></span>Moderado</button>
+        <button class="chip" type="button" data-sev="alta" aria-pressed="false"><span class="cdot cd-alta" aria-hidden="true"></span>Alta</button>
+        <button class="chip" type="button" data-sev="extrema" aria-pressed="false"><span class="cdot cd-extrema" aria-hidden="true"></span>Extrema</button>
+      </div>
+      <div class="spacer"></div>
+      <button id="btnClearFilters" class="btn-clear-filters" type="button" hidden>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        Limpiar filtros
+      </button>
+      <label class="sort-label">Ordenar
+        <select id="sort" aria-label="Ordenar hallazgos">
+          <option value="az" selected>A · Z (título)</option>
+          <option value="id">N° de hallazgo</option>
+          <option value="sev">Severidad (mayor a menor)</option>
+        </select>
+      </label>
+      <span id="count" class="count" aria-live="polite">— hallazgos</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Catálogo ══ -->
+<main class="container">
+  <section id="vulnGrid" class="grid" aria-label="Catálogo de vulnerabilidades"></section>
+  <div id="empty" class="empty" hidden>
+    <svg class="empty-art" viewBox="0 0 210 130" aria-hidden="true">
+      <rect class="ea-win" x="18" y="14" width="122" height="82" rx="9"/>
+      <circle class="ea-dot" cx="34" cy="28" r="3"/><circle class="ea-dot" cx="46" cy="28" r="3"/><circle class="ea-dot" cx="58" cy="28" r="3"/>
+      <path class="ea-line" d="M32 46l14 13-14 13"/>
+      <line class="ea-line" x1="56" y1="72" x2="102" y2="72"/>
+      <line class="ea-line dim" x1="56" y1="54" x2="116" y2="54"/>
+      <circle class="ea-mag" cx="156" cy="70" r="24"/>
+      <line class="ea-mag-h" x1="173" y1="87" x2="192" y2="106"/>
+      <path class="ea-x" d="M148 62l16 16M164 62l-16 16"/>
+    </svg>
+    <h2>Sin resultados</h2>
+    <p>Ningún hallazgo coincide con la búsqueda o los filtros aplicados.</p>
+    <button id="btnEmptyReset" class="btn" type="button">Limpiar búsqueda y filtros</button>
+  </div>
+</main>
+
+<!-- ══ Pie ══ -->
+<footer class="app-footer">
+  <div class="container">
+    <p>Herramienta interna de AppSec · uso restringido a pruebas de seguridad autorizadas · <span id="footCount"></span></p>
+    <p class="kbd-row"><kbd>/</kbd> buscar &nbsp;·&nbsp; <kbd>Ctrl</kbd>+<kbd>K</kbd> buscar &nbsp;·&nbsp; <kbd>Esc</kbd> cerrar calculadora / limpiar</p>
+  </div>
+</footer>
+
+<!-- ══ Calculadora CVSS 4.0 (drawer lateral) ══ -->
+<div id="scrim" class="scrim"></div>
+<aside id="drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" aria-hidden="true">
+  <header class="drawer-head">
+    <h2 id="drawerTitle">
+      <svg class="calc-ic" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6.5h8"/><path d="M8 11h.01M12 11h.01M16 11h.01"/><path d="M8 15h.01M12 15h.01M16 15v.01"/><path d="M8 18.5h8"/></svg>
+      Calculadora CVSS 4.0
+    </h2>
+    <button id="drawerClose" class="icon-btn" type="button" aria-label="Cerrar calculadora (Esc)" title="Cerrar (Esc)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </header>
+  <div class="drawer-sub" id="drawerLink"></div>
+  <div class="drawer-body">
+    <p id="calcLibNote" class="vec-msg err" hidden>No se pudo cargar la librería CVSS desde el CDN (¿sin conexión?). Los puntajes por defecto del catálogo siguen operativos; la calculadora requiere conexión.</p>
+
+    <!-- Sección 1 · Puntaje -->
+    <section class="calc-section" aria-label="Puntaje y severidad">
+      <h3 class="calc-sec-title">Puntaje</h3>
+      <div class="score-hero">
+        <div class="score-ring-wrap" id="scoreRing" data-sev="ninguna">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="sr-track" cx="60" cy="60" r="52"/>
+            <circle class="sr-val" id="srVal" cx="60" cy="60" r="52"/>
+          </svg>
+          <div class="score-center" id="scoreCenter">
+            <span id="scoreNum" class="score-num no-score">—</span>
+            <span id="sevPill" class="sev-pill" data-sev="ninguna" hidden>Ninguna</span>
+          </div>
+        </div>
+        <div class="score-side">
+          <div id="copyPreview" class="copy-preview">—</div>
+          <button id="btnCalcCopy" class="btn btn-primary btn-block" type="button" disabled>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copiar resultado
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sección 2 · Vector manual -->
+    <section class="calc-section" aria-label="Edición manual del vector">
+      <h3 class="calc-sec-title">Vector manual</h3>
+      <label for="vecInput">Vector CVSS 4.0 (edición manual, con las 11 métricas base)</label>
+      <input id="vecInput" class="mono-input" type="text" spellcheck="false" autocomplete="off" placeholder="CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:H/SI:H/SA:H" aria-describedby="vecMsg">
+      <div id="vecMsg" class="vec-msg" role="status"></div>
+      <div class="vec-actions">
+        <button id="btnResetVuln" class="btn-ghost" type="button" hidden>Restaurar vector por defecto (borra Custom)</button>
+      </div>
+    </section>
+
+    <!-- Sección 3 · Métricas base -->
+    <section class="calc-section" aria-label="Métricas base CVSS 4.0">
+      <h3 class="calc-sec-title">Métricas base</h3>
+      <div class="metrics" id="metrics"></div>
+    </section>
+
+    <!-- Sección 4 · Leyenda -->
+    <section class="calc-section legend" aria-label="Escala de severidad">
+      <h3 class="calc-sec-title">Escala de severidad</h3>
+      <div class="row">
+        <span class="item"><span class="dot dot-bajo"></span>Bajo 0.1 – 3.9</span>
+        <span class="item"><span class="dot dot-moderado"></span>Moderado 4.0 – 6.9</span>
+        <span class="item"><span class="dot dot-alta"></span>Alta 7.0 – 8.9</span>
+        <span class="item"><span class="dot dot-extrema"></span>Extrema 9.0 – 10.0</span>
+      </div>
+      <p class="legend-note">El botón de copiado emite: <code>[vector CVSS 4.0] Score [puntaje]/[severidad]</code></p>
+    </section>
+  </div>
+</aside>
+
+<!-- ══ Toasts ══ -->
+<div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+
+<!-- Aviso accesible para los botones Custom cuando el CDN está caído -->
+<p id="cvssOfflineNote" class="sr-only">La librería CVSS 4.0 no está disponible: no se pudo cargar desde ningún CDN. Los puntajes por defecto siguen operativos; para calcular vectores Custom se requiere conexión.</p>
+
+<script type="module" src="./assets/js/app.js"></script>
+<!-- Documentación completa (estructura, despliegue, formato de salida y datos): ver README.md -->
+</body>
+</html>
