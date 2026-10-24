@@ -1,0 +1,76 @@
+/* ════════════════════════════════════════════════════════════════════
+   utilities.css — Helpers, animaciones y preferencias de accesibilidad
+   (prefers-reduced-motion y forced-colors / contraste alto de Windows).
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Helpers ──────────────────────────────────────────────────────── */
+/* Texto solo para lectores de pantalla */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.mono { font-family: var(--mono); }
+
+/* ── Animaciones ──────────────────────────────────────────────────── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .3; }
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(10px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Barra de progreso de los toasts (se contrae de 100% a 0%) */
+@keyframes tbar {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+/* "Pop" sutil al recalcular el puntaje en la calculadora */
+@keyframes popIn {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.07); }
+  100% { transform: scale(1); }
+}
+
+/* Pulso único al activarse el modo Custom de una tarjeta */
+@keyframes customPulse {
+  0% { box-shadow: 0 0 0 0 var(--tint-accent-focus); }
+  100% { box-shadow: 0 0 0 9px transparent; }
+}
+
+/* ── Accesibilidad: el usuario prefiere menos movimiento ──────────── */
+/* Se desactivan TODAS las animaciones y transiciones (los estados
+   siguen cambiando, solo que de forma instantánea). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  html { scroll-behavior: auto; }
+}
+
+/* ── Accesibilidad: forced-colors (contraste alto de Windows) ─────── */
+/* Soporte razonable: se garantizan bordes y textos legibles con los
+   colores del sistema cuando el navegador fuerza la paleta. */
+@media (forced-colors: active) {
+  .card, .drawer, .toast, .chip, .btn, .btn-tier, .btn-ghost, .icon-btn,
+  .clear-btn, .btn-clear-filters, .badge, .tag, .copy-preview, .card-vector,
+  .mono-input, .metrics fieldset, .lib-status, select, #q, .sev-pill {
+    border: 1px solid CanvasText;
+  }
+  /* La barra lateral de severidad se convierte en borde sólido */
+  .card::before { background: none; border-left: 4px solid CanvasText; width: 0; }
+  .toast { border-left: 3px solid CanvasText; }
+  .toast .t-bar { background: CanvasText; }
+  mark { background-color: Highlight; color: HighlightText; }
+  .ring-track, .ring-val, .sr-track, .sr-val { stroke: CanvasText; }
+  .card-score .cs-lbl, .btn-tier .lbl, .btn-tier .val { color: CanvasText; }
+  .ea-mag, .ea-mag-h, .ea-x { stroke: CanvasText; }
+  .ea-line { stroke: CanvasText; }
+  .card:hover { transform: none; box-shadow: none; }
+}
