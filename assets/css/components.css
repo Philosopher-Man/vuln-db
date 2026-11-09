@@ -17,13 +17,6 @@
 .btn-primary { border-color: var(--tint-accent-bd); color: var(--accent); background: var(--tint-accent-bg); }
 .btn-primary:hover { border-color: var(--accent); background: var(--tint-accent-focus); }
 
-.btn-ghost {
-  background: transparent; border: 1px solid var(--border); color: var(--muted); cursor: pointer;
-  font-family: var(--sans); font-size: 12px; font-weight: 500; padding: 5px 11px; border-radius: var(--radius-sm);
-  transition: color .13s, border-color .13s;
-}
-.btn-ghost:hover { color: var(--text); border-color: var(--muted); }
-
 .icon-btn {
   width: 29px; height: 29px; flex: none; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
@@ -201,19 +194,11 @@ details.card-vectors summary:hover { text-decoration: underline; }
 .btn-tier.t-extrema { color: var(--sev-extrema); border-color: var(--tint-extrema-bd); }
 .btn-tier.t-extrema:hover { background: var(--tint-extrema-bg); border-color: var(--sev-extrema); }
 
-/* Botón Custom: siempre habilitado.
-   · Sin custom → abre la calculadora del hallazgo (borde punteado).
-   · Con custom → copia el puntaje recalculado (borde sólido + punto pulsante).
-   · CDN caído (body.lib-off) → aviso visual. */
+/* Botón Custom (v2.0): lanzador puro de la calculadora vinculada.
+   Siempre abre el drawer con el vector por defecto del hallazgo; nunca
+   copia ni persiste estado (borde punteado = acción de apertura). */
 .btn-tier.t-custom { color: var(--faint); border-style: dashed; border-color: var(--border-2); }
 .btn-tier.t-custom:hover { color: var(--accent); border-color: var(--tint-accent-bd); background: var(--tint-accent-bg); }
-.btn-tier.t-custom .dot {
-  width: 6px; height: 6px; border-radius: 50%; background: transparent; flex: none;
-  transition: background .2s;
-}
-.btn-tier.t-custom.is-set { color: var(--accent); border-style: solid; border-color: var(--tint-accent-bd); animation: customPulse .55s ease; }
-.btn-tier.t-custom.is-set:hover { background: var(--tint-accent-bg); border-color: var(--accent); }
-.btn-tier.t-custom.is-set .dot { background: var(--accent); animation: pulse 2s infinite; }
 
 /* Confirmación de copiado (verde + check) */
 .btn-tier.copied {
@@ -221,7 +206,31 @@ details.card-vectors summary:hover { text-decoration: underline; }
   background: var(--tint-bajo-bg) !important;
 }
 
-/* Aviso de librería caída en los Custom (ui.js añade body.lib-off) */
+/* ── Botón "Copiar nombre" (v2.0): nombre de informe por tarjeta ──── */
+/* Fila propia a ancho completo, diferenciado de los botones CVSS: borde
+   punteado, fuente monoespaciada e icono de portapapeles. El title y el
+   aria-label muestran el string exacto [<CÓDIGO>] <Título>. */
+.copy-name-btn {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; cursor: pointer;
+  font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .3px;
+  color: var(--muted); background: transparent;
+  border: 1px dashed var(--border-2); border-radius: 7px;
+  padding: 6.5px 8px;
+  transition: color .13s, border-color .13s, background .13s, transform .05s;
+}
+.copy-name-btn:hover { color: var(--accent-2); border-color: var(--tint-accent-bd); background: var(--tint-accent-bg); }
+.copy-name-btn:active { transform: translateY(1px); }
+/* Confirmación de copiado: check verde (mismo patrón que los botones CVSS) */
+.copy-name-btn .ic-check { display: none; }
+.copy-name-btn.copied {
+  color: var(--sev-bajo) !important; border-color: var(--sev-bajo) !important;
+  background: var(--tint-bajo-bg) !important;
+}
+.copy-name-btn.copied .ic-clip { display: none; }
+.copy-name-btn.copied .ic-check { display: inline; }
+
+/* Aviso de librería caída en el lanzador Custom (ui.js añade body.lib-off) */
 body.lib-off .btn-tier.t-custom { border-color: var(--tint-moderado-bd); color: var(--sev-moderado); }
 body.lib-off .btn-tier.t-custom .lbl::after { content: '!'; font-weight: 800; margin-left: 2px; }
 
@@ -336,7 +345,6 @@ body.lib-off .btn-tier.t-custom .lbl::after { content: '!'; font-weight: 800; ma
 .vec-msg { font-size: 11.5px; margin-top: 6px; min-height: 15px; }
 .vec-msg.ok { color: var(--sev-bajo); }
 .vec-msg.err { color: var(--sev-extrema); }
-.vec-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 
 /* Métricas base */
 .metrics fieldset { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px 14px; }
