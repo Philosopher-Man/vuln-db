@@ -3,7 +3,8 @@
    Orden de dependencias (módulos ES, sin bundler):
        data.js  (solo datos)  ←  cvss.js  (motor)  ←  ui.js  (interfaz)  ←  app.js
    1. initUI(): pinta el catálogo con los puntajes embebidos (validados
-      en build-time) y restaura filtros/customs desde localStorage.
+      en build-time) y restaura filtros desde localStorage (v2.0: ya no
+      hay estado Custom por hallazgo).
    2. loadCVSSLib(): carga ae-cvss-calculator@1.0.13 (jsDelivr → unpkg).
       · Éxito  → onLibReady(): recálculo en vivo de todos los puntajes.
       · Fallo  → onLibFailed(): sin recálculo; aviso accesible en los
