@@ -160,9 +160,6 @@
       <label for="vecInput">Vector CVSS 4.0 (edición manual, con las 11 métricas base)</label>
       <input id="vecInput" class="mono-input" type="text" spellcheck="false" autocomplete="off" placeholder="CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:H/SI:H/SA:H" aria-describedby="vecMsg">
       <div id="vecMsg" class="vec-msg" role="status"></div>
-      <div class="vec-actions">
-        <button id="btnResetVuln" class="btn-ghost" type="button" hidden>Restaurar vector por defecto (borra Custom)</button>
-      </div>
     </section>
 
     <!-- Sección 3 · Métricas base -->
@@ -188,8 +185,8 @@
 <!-- ══ Toasts ══ -->
 <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
 
-<!-- Aviso accesible para los botones Custom cuando el CDN está caído -->
-<p id="cvssOfflineNote" class="sr-only">La librería CVSS 4.0 no está disponible: no se pudo cargar desde ningún CDN. Los puntajes por defecto siguen operativos; para calcular vectores Custom se requiere conexión.</p>
+<!-- Aviso accesible para el botón Custom (lanzador de la calculadora) cuando el CDN está caído -->
+<p id="cvssOfflineNote" class="sr-only">La librería CVSS 4.0 no está disponible: no se pudo cargar desde ningún CDN. Los puntajes por defecto siguen operativos; la calculadora requiere conexión.</p>
 
 <script type="module" src="./assets/js/app.js"></script>
 <!-- Documentación completa (estructura, despliegue, formato de salida y datos): ver README.md -->
