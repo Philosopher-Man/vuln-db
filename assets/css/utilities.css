@@ -56,9 +56,10 @@
 
 /* ── Accesibilidad: forced-colors (contraste alto de Windows) ─────── */
 /* Soporte razonable: se garantizan bordes y textos legibles con los
-   colores del sistema cuando el navegador fuerza la paleta. */
+   colores del sistema cuando el navegador fuerza la paleta.
+   v2.0: .copy-name-btn entra en la lista (antes .btn-ghost, eliminado). */
 @media (forced-colors: active) {
-  .card, .drawer, .toast, .chip, .btn, .btn-tier, .btn-ghost, .icon-btn,
+  .card, .drawer, .toast, .chip, .btn, .btn-tier, .copy-name-btn, .icon-btn,
   .clear-btn, .btn-clear-filters, .badge, .tag, .copy-preview, .card-vector,
   .mono-input, .metrics fieldset, .lib-status, select, #q, .sev-pill {
     border: 1px solid CanvasText;
