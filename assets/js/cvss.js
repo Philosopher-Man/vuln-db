@@ -3,7 +3,8 @@
    · Carga de la librería ae-cvss-calculator@1.0.13 vía CDN, con espejo
      (jsDelivr → unpkg) y validación con vector centinela.
    · Parseo/normalización estricta de vectores (prefijo + 11 métricas base).
-   · formatCVSS(): ÚNICA fuente de verdad del formato de salida.
+   · formatCVSS(): ÚNICA fuente de verdad del formato de salida CVSS.
+   · formatReportName(): única fuente de verdad del nombre de informe.
    ════════════════════════════════════════════════════════════════════ */
 
 import { SEV, SEV_LABELS, TIER_KEYS, METRIC_BASE_ORDER, METRIC_OPTS } from './data.js';
@@ -106,6 +107,16 @@ export function sevLabelOf(sevKey) { return SEV_LABELS[sevKey] || null; }
    severidad con inicial mayúscula. No debe variarse. */
 export function formatCVSS(vector, score, sevLabel) {
   return String(vector) + ' Score ' + r1(score).toFixed(1) + '/' + sevLabel;
+}
+
+/* ★ NOMBRE DE INFORME — única fuente de verdad del formato (v2.0).
+   Estructura: [<CÓDIGO>] <Título>
+   Ej.: [A05:2025] Falta de validación en consultas SQL
+        [M9] Falta de controles ante ingeniería inversa
+   Reglas: corchete de apertura + código tal cual + corchete de cierre +
+   UN espacio + título tal cual (sin recortes ni reformulaciones). */
+export function formatReportName(vuln) {
+  return '[' + String(vuln.code) + '] ' + String(vuln.t);
 }
 
 /* ── Parseo estricto del vector ──────────────────────────────────────
