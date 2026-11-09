@@ -5,21 +5,23 @@
      1. Referencias DOM + estado + persistencia (localStorage)
      2. Utilidades de render (escape, normalización, resaltado)
      3. Filtrado, búsqueda y orden
-     4. Renderizado de tarjetas (anillo de puntaje + barra de acciones)
-     5. Botón Custom: actualización IN SITU (sin reemplazar nodos)
-     6. Motor de copiado (formato estricto) + toasts con barra de progreso
-     7. Calculadora CVSS 4.0 (drawer + scroll-lock robusto)
-     8. Atajos de teclado + accesibilidad
-     9. Eventos de filtros/buscador
-    10. Init + API para app.js (onLibReady / onLibFailed)
+     4. Renderizado de tarjetas (anillo + botones CVSS + Copiar nombre)
+     5. Motor de copiado (formatos estrictos) + toasts con barra de progreso
+     6. Calculadora CVSS 4.0 (drawer + scroll-lock robusto)
+     7. Atajos de teclado + accesibilidad
+     8. Eventos de filtros/buscador
+     9. Init + API para app.js (onLibReady / onLibFailed)
+   v2.0: el botón Custom es un LANZADOR puro de la calculadora vinculada
+   (sin estado persistente por hallazgo) y cada tarjeta incorpora un
+   botón "Copiar nombre" con el formato de informe [<CÓDIGO>] <Título>.
    ════════════════════════════════════════════════════════════════════ */
 
 import {
-  VULNS, CAT_NAMES, GROUPS, SEV, SEV_LABELS, TIER_KEYS, TIER_SORT,
-  METRIC_BASE_ORDER, METRIC_OPTS, METRIC_GROUPS,
+  VULNS, CAT_NAMES, GROUPS, SEV, TIER_KEYS, TIER_SORT,
+  METRIC_OPTS, METRIC_GROUPS,
 } from './data.js';
 import {
-  r1, sevOf, sevLabelOf, formatCVSS, scoreOf, libIsReady,
+  r1, sevOf, sevLabelOf, formatCVSS, formatReportName, scoreOf, libIsReady,
   parseVector, buildVector, DEFAULT_VECTOR,
 } from './cvss.js';
 
@@ -47,23 +49,21 @@ const srValEl = $('#srVal');
 const scoreCenterEl = $('#scoreCenter');
 const copyPreviewEl = $('#copyPreview');
 const btnCalcCopy = $('#btnCalcCopy');
-const btnResetVuln = $('#btnResetVuln');
 const metricsEl = $('#metrics');
 const libStatusEl = $('#libStatus');
 
-/* Claves de localStorage (v2: los IDs se renumeraron 1..59 en la limpieza
-   de datos, por lo que NO se heredan los customs guardados contra la
-   numeración anterior). */
+/* Claves de localStorage. v2.0: solo persisten los filtros y el último
+   vector editado en la calculadora libre; el estado Custom por hallazgo
+   dejó de existir (la clave heredada de la v1.0 se limpia en initUI). */
 const LS_FILTERS = 'appsec-filters-v2';
-const LS_CUSTOMS = 'appsec-vuln-customs-v2';
 const LS_LASTVEC = 'appsec-last-vector-v2';
+const LS_CUSTOMS_LEGACY = 'appsec-vuln-customs-v2'; // obsoleta: solo se elimina
 
 const state = {
   q: '',
   group: 'all',
   sev: 'all',
   sort: 'az',
-  customs: new Map(), // id → { v: vector, s: score }
 };
 
 /* ── Persistencia: filtros (q, group, sev, sort) ───────────────────── */
@@ -90,33 +90,7 @@ function persistFilters() {
   }, 150);
 }
 
-/* ── Persistencia: vectores Custom por hallazgo ────────────────────── */
-function loadCustoms() {
-  try {
-    const raw = localStorage.getItem(LS_CUSTOMS);
-    if (!raw) return;
-    const obj = JSON.parse(raw);
-    for (const k of Object.keys(obj)) {
-      const id = parseInt(k, 10);
-      const c = obj[k];
-      if (Number.isInteger(id) && BY_ID.has(id) && c && typeof c.v === 'string') {
-        state.customs.set(id, { v: c.v, s: typeof c.s === 'number' ? c.s : null });
-      }
-    }
-  } catch (e) { /* almacenamiento no disponible o corrupto: continuar sin customs */ }
-}
-let persistTimer = null;
-function persistCustoms() {
-  clearTimeout(persistTimer);
-  persistTimer = setTimeout(() => {
-    try {
-      const obj = {};
-      for (const [id, c] of state.customs) obj[id] = c;
-      localStorage.setItem(LS_CUSTOMS, JSON.stringify(obj));
-    } catch (e) { /* modo privado: ignorar */ }
-  }, 250);
-}
-
+/* ── Persistencia: último vector de la calculadora libre ──────────── */
 function setLastVector(v) {
   try { localStorage.setItem(LS_LASTVEC, v); } catch (e) { /* ignorar */ }
 }
@@ -192,7 +166,6 @@ for (const v of VULNS) {
 }
 
 function tierScore(v, tier) { return r1(v.tiers[tier].s); }
-function customOf(v) { return state.customs.get(v.id) || null; }
 
 /* ── 3. FILTRADO, BÚSQUEDA Y ORDEN ─────────────────────────────────── */
 function getFiltered() {
@@ -219,6 +192,9 @@ function getFiltered() {
 
 /* ── 4. RENDERIZADO DE TARJETAS ────────────────────────────────────── */
 const ICON_CHECK = '<svg class="ic-check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+/* Portapapeles (botón "Copiar nombre") y calculadora (lanzador Custom) */
+const ICON_CLIP = '<svg class="ic-clip" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+const ICON_CALC = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6.5h8"/><path d="M8 11h.01M12 11h.01M16 11h.01"/><path d="M8 15h.01M12 15h.01M16 15v.01"/><path d="M8 18.5h8"/></svg>';
 
 /* Circunferencia del anillo de las tarjetas (r = 18 en viewBox 44) */
 const RING_C_CARD = 2 * Math.PI * 18;
@@ -253,11 +229,25 @@ function tierBtnHTML(v, tier) {
   </button>`;
 }
 
-/* Esqueleto del botón Custom: SIEMPRE habilitado. Su contenido/estado se
-   completa con updateCustomButton() (actualización in situ, sin innerHTML). */
-function customBtnSkeletonHTML(v) {
-  return `<button type="button" class="btn-tier t-custom" data-action="custom" data-id="${v.id}">
-    <span class="lbl"><span class="dot" aria-hidden="true"></span>${ICON_CHECK}Custom</span><span class="val">—</span>
+/* Botón Custom (v2.0): lanzador PURO de la calculadora vinculada. Siempre
+   abre el drawer arrancando del vector por defecto del hallazgo; nunca
+   copia un vector ni persiste estado (la tarjeta conserva su nivel). */
+function customBtnHTML(v) {
+  return `<button type="button" class="btn-tier t-custom" data-action="custom" data-id="${v.id}"
+    title="Abrir la calculadora CVSS 4.0 vinculada a este hallazgo (parte de su vector por defecto)"
+    aria-label="${esc('Abrir la calculadora CVSS 4.0 para ' + v.t)}">
+    <span class="lbl">${ICON_CALC}Custom</span><span class="val">—</span>
+  </button>`;
+}
+
+/* Botón "Copiar nombre" (v2.0): copia el nombre de informe exacto con el
+   formato [<CÓDIGO>] <Título> — única fuente de verdad: formatReportName(). */
+function copyNameBtnHTML(v) {
+  const full = formatReportName(v);
+  return `<button type="button" class="copy-name-btn" data-action="name" data-id="${v.id}"
+    title="Copiar: ${esc(full)}"
+    aria-label="${esc('Copiar nombre de informe — ' + full)}">
+    ${ICON_CLIP}${ICON_CHECK}<span>Copiar nombre</span>
   </button>`;
 }
 
@@ -289,8 +279,9 @@ function cardHTML(v) {
   </details>
   <div class="card-actions">
     ${TIER_KEYS.map((k) => tierBtnHTML(v, k)).join('')}
-    ${customBtnSkeletonHTML(v)}
+    ${customBtnHTML(v)}
   </div>
+  ${copyNameBtnHTML(v)}
 </article>`;
 }
 
@@ -299,7 +290,7 @@ function renderCards() {
   gridEl.innerHTML = list.map(cardHTML).join('');
   emptyEl.hidden = list.length !== 0;
   updateCount(list.length);
-  refreshCustomButtons(); // completa el estado inicial de los botones Custom
+  setCustomOfflineWarn(!libIsReady()); // aviso accesible si el CDN no está listo
 }
 
 function updateCount(n) {
@@ -314,44 +305,19 @@ function updateClearFiltersVisibility() {
   btnClearFilters.hidden = !active;
 }
 
-/* ── 5. BOTÓN CUSTOM (actualización in situ) ─────────────────────────
-   Refactor clave: en lugar de reemplazar el nodo (innerHTML), se
-   actualizan SOLO clases, atributos y textos del botón existente.
-   Así se preservan el foco, las transiciones CSS y los listeners. */
-function updateCustomButton(btn, v) {
-  const c = customOf(v);
-  const valEl = btn.querySelector('.val');
-  btn.classList.toggle('is-set', !!c);
-  if (c && c.s != null) {
-    const sev = sevOf(c.s);
-    valEl.textContent = r1(c.s).toFixed(1);
-    btn.dataset.sev = sev || '';
-    const full = formatCVSS(c.v, c.s, sevLabelOf(sev) || '—'); // formato estricto completo
-    btn.title = 'Copiar Custom: ' + full;
-    btn.setAttribute('aria-label', 'Copiar CVSS Custom de ' + v.t + ' — ' + full);
-  } else {
-    valEl.textContent = '—';
-    delete btn.dataset.sev;
-    const msg = 'Sin vector Custom: haz clic para abrir la calculadora, ajustar el vector de este hallazgo y copiar el puntaje recalculado';
-    btn.title = msg;
-    btn.setAttribute('aria-label', 'Configurar CVSS Custom de ' + v.t);
-  }
-  /* Aviso accesible si la librería CVSS no está disponible (CDN caído) */
-  if (libIsReady()) btn.removeAttribute('aria-describedby');
-  else btn.setAttribute('aria-describedby', 'cvssOfflineNote');
-}
-
-function refreshCustomButtons() {
-  for (const btn of gridEl.querySelectorAll('[data-action="custom"]')) {
-    const v = BY_ID.get(parseInt(btn.dataset.id, 10));
-    if (v) updateCustomButton(btn, v);
+/* Aviso accesible (aria-describedby) en los lanzadores Custom mientras la
+   librería CVSS no está disponible. v2.0: ya no hay estado que refrescar. */
+function setCustomOfflineWarn(on) {
+  for (const b of gridEl.querySelectorAll('[data-action="custom"]')) {
+    if (on) b.setAttribute('aria-describedby', 'cvssOfflineNote');
+    else b.removeAttribute('aria-describedby');
   }
 }
 
-/* ── 6. MOTOR DE COPIADO + TOASTS ────────────────────────────────────
+/* ── 5. MOTOR DE COPIADO + TOASTS ────────────────────────────────────
    Toda copia usa navigator.clipboard.writeText (API moderna) con
    respaldo execCommand para contextos sin permiso. El texto SIEMPRE
-   proviene de formatCVSS() (vector + Score + puntaje/severidad). */
+   proviene de formatCVSS() / formatReportName() (formatos estrictos). */
 async function copyText(text) {
   try {
     if (navigator.clipboard && window.isSecureContext) {
@@ -421,7 +387,12 @@ function flashBtn(btn) {
 /* Copia el texto con formato estricto y muestra el feedback completo */
 async function doCopy(btn, vector, score, sevLabel) {
   if (score == null || !sevLabel) return;
-  const text = formatCVSS(vector, score, sevLabel); // única fuente de verdad
+  doCopyRaw(btn, formatCVSS(vector, score, sevLabel)); // única fuente de verdad
+}
+
+/* Copia texto libre (nombre de informe, resultado del drawer) con el
+   mismo feedback: toast con el string COMPLETO + flash del botón. */
+async function doCopyRaw(btn, text) {
   const ok = await copyText(text);
   toast(text, ok);
   if (ok && btn) flashBtn(btn);
@@ -437,21 +408,23 @@ gridEl.addEventListener('click', (ev) => {
   if (btn.dataset.action === 'tier') {
     const tier = btn.dataset.tier;
     doCopy(btn, v.tiers[tier].v, tierScore(v, tier), SEV[tier].label);
+  } else if (btn.dataset.action === 'name') {
+    /* v2.0: nombre de informe [<CÓDIGO>] <Título> */
+    doCopyRaw(btn, formatReportName(v));
   } else if (btn.dataset.action === 'custom') {
-    /* Custom siempre habilitado: copia si hay vector; si no, abre la
-       calculadora del hallazgo para definirlo. */
-    const c = customOf(v);
-    if (c && c.s != null) doCopy(btn, c.v, c.s, sevLabelOf(sevOf(c.s)));
-    else openCalc(v.id, btn);
+    /* v2.0: lanzador puro — SIEMPRE abre la calculadora vinculada,
+       arrancando del vector por defecto del hallazgo. Nunca copia. */
+    openCalc(v.id, btn);
   }
 });
 
-/* ── 7. CALCULADORA CVSS 4.0 (drawer lateral) ────────────────────────
+/* ── 6. CALCULADORA CVSS 4.0 (drawer lateral) ────────────────────────
    Modos:
-     · Libre     — desde la cabecera: edita cualquier vector.
-     · Vinculada — desde una tarjeta (botón Custom): precarga el vector
-       del hallazgo y guarda los cambios como su vector Custom. */
-const calcState = { open: false, linkedId: null, m: {}, extras: [], returnFocus: null, suppressSave: false };
+     · Libre     — desde la cabecera: edita cualquier vector; recuerda el
+       último editado en localStorage (lastVector).
+     · Vinculada — desde una tarjeta (botón Custom): SIEMPRE arranca del
+       vector por defecto del hallazgo y NO persiste nada en la tarjeta. */
+const calcState = { open: false, linkedId: null, m: {}, extras: [], returnFocus: null };
 
 /* Scroll-lock robusto: fija el body (evita el salto en iOS), compensa el
    ancho del scrollbar y restaura scrollY exacto al cerrar. */
@@ -530,8 +503,8 @@ function popScore() {
   scoreCenterEl.classList.add('pop');
 }
 
-/* Recalcula el puntaje en vivo: anillo, número, píldora, vista previa
-   del texto copiable y custom vinculado. */
+/* Recalcula el puntaje en vivo: anillo, número, píldora y vista previa
+   del texto copiable. (v2.0: sin custom vinculado; solo lastVector). */
 function recomputeCalc() {
   const vec = buildVector(calcState.m, calcState.extras);
   const s = scoreOf(vec);
@@ -560,28 +533,6 @@ function recomputeCalc() {
     delete btnCalcCopy.dataset.text;
   }
   setLastVector(vec);
-  /* Modo vinculado: guardar como Custom SOLO si el vector difiere del nivel
-     por defecto del hallazgo (abrir la calculadora sin cambios no activa el
-     indicador Custom). Si el analista vuelve al vector por defecto editando,
-     el custom se elimina. suppressSave evita que el ciclo de restauración
-     vuelva a crear el custom. */
-  if (calcState.linkedId != null) {
-    const v = BY_ID.get(calcState.linkedId);
-    if (v) {
-      if (s != null && !calcState.suppressSave) {
-        const defVec = v.tiers[v.def].v;
-        if (vec !== defVec) {
-          state.customs.set(v.id, { v: vec, s: r1(s) });
-          persistCustoms();
-        } else if (state.customs.has(v.id)) {
-          state.customs.delete(v.id);
-          persistCustoms();
-        }
-      }
-      calcState.suppressSave = false;
-      refreshCustomButtons();
-    }
-  }
 }
 
 function setLinkedUI() {
@@ -592,11 +543,9 @@ function setLinkedUI() {
       <span class="badge id">#${v.id}</span><strong>${esc(v.t)}</strong>
       <span class="badge cat">${esc(v.code)}</span>
     </div>
-    <div class="linked" style="margin-top:6px">Los ajustes se guardan como puntaje <strong>Custom</strong> de este hallazgo.</div>`;
-    btnResetVuln.hidden = false;
+    <div class="linked" style="margin-top:6px">Personaliza el vector y copia el resultado desde la calculadora; la tarjeta conserva su nivel por defecto.</div>`;
   } else {
     drawerLinkEl.innerHTML = '<div class="free-hint">Modo libre: edita el vector y copia el resultado. Desde una tarjeta, la calculadora se vincula al hallazgo.</div>';
-    btnResetVuln.hidden = true;
   }
 }
 
@@ -606,9 +555,10 @@ function openCalc(vulnId, openerBtn) {
   calcState.returnFocus = openerBtn || document.activeElement;
   let vec;
   if (vulnId != null) {
+    /* v2.0: el modo vinculado SIEMPRE parte del vector por defecto del
+       hallazgo (no recuerda ediciones previas por hallazgo). */
     const v = BY_ID.get(vulnId);
-    const c = customOf(v);
-    vec = c ? c.v : v.tiers[v.def].v;
+    vec = v.tiers[v.def].v;
   } else {
     vec = getLastVector() || DEFAULT_VECTOR;
   }
@@ -659,27 +609,14 @@ vecInput.addEventListener('input', () => {
 
 btnCalcCopy.addEventListener('click', () => {
   const text = btnCalcCopy.dataset.text;
-  if (!text) return;
-  copyText(text).then((ok) => { toast(text, ok); if (ok) flashBtn(btnCalcCopy); });
-});
-
-/* Restaura el vector por defecto del hallazgo vinculado (y borra su custom) */
-btnResetVuln.addEventListener('click', () => {
-  if (calcState.linkedId == null) return;
-  const v = BY_ID.get(calcState.linkedId);
-  state.customs.delete(v.id);
-  persistCustoms();
-  calcState.suppressSave = true; // que recomputeCalc no lo vuelva a guardar
-  applyVectorToUI(v.tiers[v.def].v, true);
-  setLinkedUI();
-  recomputeCalc();
+  if (text) doCopyRaw(btnCalcCopy, text);
 });
 
 $('#drawerClose').addEventListener('click', closeCalc);
 scrimEl.addEventListener('click', closeCalc);
 $('#btnFreeCalc').addEventListener('click', () => openCalc(null));
 
-/* ── 8. ATAJOS DE TECLADO + ACCESIBILIDAD ──────────────────────────── */
+/* ── 7. ATAJOS DE TECLADO + ACCESIBILIDAD ──────────────────────────── */
 function isTyping(el) {
   return el instanceof Element &&
     (el.matches('input, textarea, select') || el.isContentEditable);
@@ -724,7 +661,7 @@ document.addEventListener('keydown', (ev) => {
   }
 });
 
-/* ── 9. EVENTOS: BÚSQUEDA, FILTROS Y ORDEN ─────────────────────────── */
+/* ── 8. EVENTOS: BÚSQUEDA, FILTROS Y ORDEN ─────────────────────────── */
 qInput.addEventListener('input', () => {
   state.q = qInput.value;
   btnClear.hidden = !qInput.value;
@@ -788,10 +725,12 @@ function initStuckObserver() {
   }).observe(sentinel);
 }
 
-/* ── 10. INIT + API PARA app.js ────────────────────────────────────── */
+/* ── 9. INIT + API PARA app.js ─────────────────────────────────────── */
 export function initUI() {
   loadFilters();
-  loadCustoms();
+  /* v2.0: el estado Custom por hallazgo dejó de existir — limpieza única
+     de la clave heredada de la v1.0 para no dejar datos huérfanos. */
+  try { localStorage.removeItem(LS_CUSTOMS_LEGACY); } catch (e) { /* ignorar */ }
   /* Aplica el estado persistido a los controles */
   qInput.value = state.q;
   btnClear.hidden = !state.q;
@@ -807,10 +746,8 @@ export function initUI() {
   footCountEl.textContent = `${VULNS.length} hallazgos · Web ${by('web')} / API ${by('api')} / Móvil ${by('movil')} / LLM ${by('llm')}`;
 }
 
-/* La librería CVSS se cargó: recálculo en vivo de todos los puntajes.
-   (Antes existía aquí una rama vacía "else if (calcState.open…) { nada }":
-   ahora se implementa de verdad — si el drawer está abierto esperando
-   la librería, se recalcula su puntaje en el momento.) */
+/* La librería CVSS se cargó: recálculo en vivo de todos los puntajes
+   embebidos y del drawer si estaba abierto esperando la librería. */
 export function onLibReady() {
   /* Indicador de estado de la librería (cabecera) */
   libStatusEl.classList.remove('loading', 'offline');
@@ -824,20 +761,14 @@ export function onLibReady() {
       if (s != null && r1(s) !== r1(v.tiers[k].s)) { v.tiers[k].s = r1(s); changed = true; corrected++; }
     }
   }
-  let customsChanged = false;
-  for (const c of state.customs.values()) {
-    const s = scoreOf(c.v);
-    if (s != null && r1(s) !== r1(c.s)) { c.s = r1(s); customsChanged = true; }
-  }
-  if (customsChanged) persistCustoms();
   if (corrected) console.info('[AppSec] ' + corrected + ' puntajes embebidos corregidos en vivo (los vectores eran correctos; servían de respaldo sin conexión).');
-  if (changed || customsChanged) renderCards();
-  else refreshCustomButtons();
+  if (changed) renderCards();
+  setCustomOfflineWarn(false); // la calculadora ya está disponible
   if (calcState.open) recomputeCalc(); // drawer abierto: recalcular ahora
 }
 
 /* Ambos CDN fallaron: NO se dispara el recálculo. Los puntajes embebidos
-   (validados en build-time) siguen operativos y los botones Custom
+   (validados en build-time) siguen operativos; los lanzadores Custom
    muestran el aviso accesible (aria-describedby → #cvssOfflineNote). */
 export function onLibFailed() {
   document.body.classList.add('lib-off');
@@ -846,6 +777,6 @@ export function onLibFailed() {
   libStatusEl.querySelector('.txt').textContent = 'CVSS offline · puntajes embebidos';
   const note = document.getElementById('calcLibNote');
   if (note) note.hidden = false;
-  refreshCustomButtons(); // aplica aria-describedby del aviso
+  setCustomOfflineWarn(true); // aplica aria-describedby del aviso
   console.warn('[AppSec] No se pudo cargar ae-cvss-calculator desde jsDelivr ni unpkg. La calculadora queda deshabilitada; los puntajes por defecto siguen operativos.');
 }
